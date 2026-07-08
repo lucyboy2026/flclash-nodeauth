@@ -3,9 +3,12 @@ import 'dart:math';
 import 'package:defer_pointer/defer_pointer.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/common/node_auth.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/node_auth.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/views/node_auth.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,6 +63,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
   List<Widget> _buildActions(bool isEdit) {
     final appLocalizations = context.appLocalizations;
     return [
+      if (!isEdit) const NodeAccountButton(),
       if (!isEdit)
         Consumer(
           builder: (_, ref, _) {
@@ -284,6 +288,67 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                   ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 首页右上角的节点账号入口：显示登录状态，点击打开账号页（登录/退出）。
+class NodeAccountButton extends StatefulWidget {
+  const NodeAccountButton({super.key});
+
+  @override
+  State<NodeAccountButton> createState() => _NodeAccountButtonState();
+}
+
+class _NodeAccountButtonState extends State<NodeAccountButton> {
+  NodeAuthSession? _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final session = await nodeAuth.loadSession();
+    if (!mounted) return;
+    setState(() => _session = session);
+  }
+
+  Future<void> _open() async {
+    await showExtend(
+      context,
+      props: const ExtendProps(blur: true, forceFull: true),
+      builder: (_) => const NodeAuthView(),
+    );
+    _loadSession();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final session = _session;
+    final loggedIn =
+        session != null && session.token.isNotEmpty && !session.isTokenExpired;
+    final label = loggedIn
+        ? session.email.split('@').first
+        : (isZh ? '登录' : 'Login');
+    return Tooltip(
+      message: loggedIn
+          ? (isZh ? '节点账号：${session.email}' : 'Account: ${session.email}')
+          : (isZh ? '登录节点账号' : 'Login to node account'),
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        onPressed: _open,
+        icon: Icon(
+          loggedIn ? Icons.account_circle : Icons.account_circle_outlined,
+          size: 20,
+        ),
+        label: Text(label, overflow: TextOverflow.ellipsis),
       ),
     );
   }
